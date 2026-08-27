@@ -1,0 +1,6 @@
+[submodule "dependencies/submodules/nanobind"]
+	path = dependencies/submodules/nanobind
+	url = git@github.com:wjakob/nanobind.git
+[submodule "dependencies/submodules/MidnightMath"]
+	path = dependencies/submodules/MidnightMath
+	url = git@github.com:MidnightMagenta/MidnightMath.git

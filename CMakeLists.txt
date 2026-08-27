@@ -1,21 +1,27 @@
 cmake_minimum_required(VERSION 3.10)
 
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE "debug")
 set(ProjectName "project_name")
-set(Subsystem "CONSOLE")
 
 project("${ProjectName}" VERSION 0.1)
 set(CMAKE_CXX_STANDARD 23)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(filters)
-
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(dependencies)
 
-#app executable
-add_executable("${ProjectName}"
-        #src files
-        src/main.cpp
-        #header files
+message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
+message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
+message(STATUS "Python_VERSION: ${Python_VERSION}")
+
+add_library(esjson_lib STATIC
+    # headers
+
+    # sources
+    src/main.cpp
 )
+target_link_libraries(esjson_lib PUBLIC MidnightMath)
+target_include_directories(esjson_lib PUBLIC include)
+
+nanobind_add_module(esjson src/python_bindings.cpp)
+target_link_libraries(esjson PRIVATE esjson_lib)
