@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <md_math.hpp>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -333,6 +334,96 @@ public:
 private:
     int                 m_cylinder_count;
     std::vector<double> m_firing_angles;
+};
+
+// state/reset
+
+class ComponentInstance : public Object {
+public:
+    ComponentInstance()
+        : Object(-2) {}
+    ~ComponentInstance() {}
+
+private:
+    int64_t m_specification;
+    int64_t m_context;
+    int64_t m_detail;
+    int64_t m_instance_mapping;
+    int     m_type;
+    int     m_referenced_type;
+};
+
+class InstanceMapping : public Object {
+public:
+    InstanceMapping()
+        : Object(-3) {}
+    ~InstanceMapping() {}
+
+private:
+    std::unordered_map<int64_t, int64_t> m_object_map;
+};
+
+class RigidBodyState : public Object {
+public:
+    RigidBodyState()
+        : Object(-4) {}
+    ~RigidBodyState() {}
+
+private:
+    mdm::dvec3_s m_position;
+    mdm::dvec3_s m_velocity;
+    double       m_angle;
+    double       m_angular_velocity;
+};
+
+class GasReservoirModelState : public Object {
+public:
+    GasReservoirModelState()
+        : Object(-5) {}
+    ~GasReservoirModelState() {}
+
+private:
+    double m_volume;
+    double m_density;
+    double m_internal_energy;
+    double m_burned_volume;
+    double m_unburned_volume;
+    double m_turbulence_intensity;
+    double m_unburned_fraction_internal_energy;
+    double m_burned_fraction_internal_energy;
+    double m_combustion_active;
+};
+
+class TubeState : public Object {
+public:
+    struct OutletState {
+        double                m_entropy;
+        double                m_sound_pressure;
+        std::array<double, 5> m_outlet_velocity;
+    };
+
+public:
+    TubeState()
+        : Object(-6) {}
+    ~TubeState() {}
+
+private:
+    std::array<OutletState, 2> m_outlet_state;
+    std::vector<double>        m_density;
+    std::vector<double>        m_velocity;
+    std::vector<double>        m_energy;
+    std::vector<double>        m_T_wall;
+};
+
+class ValveState : public Object {
+public:
+    ValveState()
+        : Object(-7) {}
+    ~ValveState() {}
+
+private:
+    double m_s;
+    double m_s_target;
 };
 
 #endif
