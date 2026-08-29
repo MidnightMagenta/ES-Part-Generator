@@ -22,6 +22,11 @@ public:
     }
 
     template<ObjType T>
+    inline typename ObjEnumToType<T>::type *create_object() {
+        return dynamic_cast<typename ObjEnumToType<T>::type *>(make_object<T>());
+    }
+
+    template<ObjType T>
     typename ObjEnumToType<T>::type *find_object(int64_t id) {
         Object                          *obj;
         typename ObjEnumToType<T>::type *cast_object;
@@ -42,6 +47,10 @@ public:
 
     inline void serialize(nlohmann::json &json) {
         json["fileVersion"] = JSON_VERSION;
+
+        // HACK: I don't know what Reference::Specification is, it's always empty though
+        json["Reference::Specification"] = nlohmann::json::array();
+
         for (const auto &o : m_objects) { o->serialize(json); }
     }
 
