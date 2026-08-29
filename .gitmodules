@@ -4,3 +4,6 @@
 [submodule "dependencies/submodules/MidnightMath"]
 	path = dependencies/submodules/MidnightMath
 	url = git@github.com:MidnightMagenta/MidnightMath.git
+[submodule "dependencies/submodules/json"]
+	path = dependencies/submodules/json
+	url = git@github.com:nlohmann/json.git

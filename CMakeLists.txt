@@ -16,12 +16,21 @@ message(STATUS "Python_VERSION: ${Python_VERSION}")
 
 add_library(esjson_lib STATIC
     # headers
-
+    include/objects.h
+    include/object_tree.h
     # sources
-    src/main.cpp
+    src/object_tree.cpp
+    src/objects.cpp
 )
-target_link_libraries(esjson_lib PUBLIC MidnightMath)
+target_link_libraries(esjson_lib PUBLIC
+    nlohmann_json::nlohmann_json
+)
 target_include_directories(esjson_lib PUBLIC include)
 
 nanobind_add_module(esjson src/python_bindings.cpp)
 target_link_libraries(esjson PRIVATE esjson_lib)
+
+add_executable(esjson_test
+    src/main.cpp
+)
+target_link_libraries(esjson_test PRIVATE esjson_lib)
