@@ -11,6 +11,22 @@
 #include <variant>
 #include <vector>
 
+#define SIMPLE_ACCESSOR(type, name, member)                                                                            \
+    inline type &name() {                                                                                              \
+        return member;                                                                                                 \
+    }                                                                                                                  \
+    inline type name() const {                                                                                         \
+        return member;                                                                                                 \
+    }
+
+#define SIMPLE_ACCESSOR_REF(type, name, member)                                                                        \
+    inline type &name() {                                                                                              \
+        return member;                                                                                                 \
+    }                                                                                                                  \
+    inline const type &name() const {                                                                                  \
+        return member;                                                                                                 \
+    }
+
 class ObjectTree;
 
 enum ObjType : int {
@@ -93,15 +109,28 @@ public:
         cchild->reparent(this);
     }
 
+    inline const std::unordered_set<Object *> &get_children() const {
+        return m_children;
+    }
+
+    inline const Object *get_parent() const {
+        return m_parent;
+    }
+
     inline void add_detail(Object *detail) {
         // TODO: should probably check if the detail type is actually valid
         m_detail = detail;
         m_type   = detail->type();
     }
 
-    inline void set_required(bool r) {
-        m_required = r;
+    inline Object *get_detail() {
+        return m_detail;
     }
+    inline const Object *get_detail() const {
+        return m_detail;
+    }
+
+    SIMPLE_ACCESSOR(bool, required, m_required);
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["Component::Specification"];
@@ -137,17 +166,9 @@ public:
     RigidBody(ObjectTree *tree)
         : Object(3, tree) {}
 
-    inline void set_infinite_mass(bool im) {
-        m_infinite_mass = im;
-    }
-
-    inline void set_default_angle(double da) {
-        m_default_angle = da;
-    }
-
-    inline void set_detault_position(double x, double y, double z) {
-        m_default_position = {x, y, z};
-    }
+    SIMPLE_ACCESSOR(bool, infinite_mass, m_infinite_mass);
+    SIMPLE_ACCESSOR(double, default_angle, m_default_angle);
+    SIMPLE_ACCESSOR_REF(dvec3_s, default_position, m_default_position);
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["RigidBody::Specification"];
@@ -185,24 +206,21 @@ public:
     }
     ~RigidBodyElement() {}
 
-    inline void set_position(double x, double y, double z) {
-        m_position = {x, y, z};
-    }
-
-    inline void set_mass(double mass) {
-        m_mass = mass;
-    }
+    SIMPLE_ACCESSOR_REF(dvec3_s, position, m_position);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c0, m_orient_c0);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c1, m_orient_c1);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c2, m_orient_c2);
+    SIMPLE_ACCESSOR(double, mass, m_mass);
+    SIMPLE_ACCESSOR(Shape, type, m_type);
+    SIMPLE_ACCESSOR(bool, visible, m_visible);
 
     inline void set_param(size_t param, double v) {
+        if (param >= m_params.size()) { throw std::runtime_error("Invalid parameter index"); }
         m_params[param] = v;
     }
-
-    inline void set_shape(Shape s) {
-        m_type = s;
-    }
-
-    inline void set_visible(bool v) {
-        m_visible = v;
+    inline const double get_param(size_t param) const {
+        if (param >= m_params.size()) { throw std::runtime_error("Invalid parameter index"); }
+        return m_params[param];
     }
 
     void serialize(nlohmann::json &json) override {
@@ -265,6 +283,37 @@ public:
     Tube(ObjectTree *tree)
         : Object(6, tree) {}
     ~Tube() {}
+
+    SIMPLE_ACCESSOR(int, precision, m_precision);
+    SIMPLE_ACCESSOR(int, solver_id, m_solverid);
+    SIMPLE_ACCESSOR(int, limiter_id, m_limiterid);
+
+    inline void set_cell_count(size_t c) {
+        m_dx.resize(c);
+        m_area.resize(c);
+    }
+
+    inline size_t cell_count() const {
+        return m_dx.size();
+    }
+
+    inline double *dx(size_t idx) {
+        if (idx >= m_dx.size()) { return nullptr; }
+        return &m_dx[idx];
+    }
+    inline const double *dx(size_t idx) const {
+        if (idx >= m_dx.size()) { return nullptr; }
+        return &m_dx[idx];
+    }
+
+    inline double *area(size_t idx) {
+        if (idx >= m_area.size()) { return nullptr; }
+        return &m_area[idx];
+    }
+    inline const double *area(size_t idx) const {
+        if (idx >= m_area.size()) { return nullptr; }
+        return &m_area[idx];
+    }
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["Tube::Specification"];
@@ -334,6 +383,9 @@ public:
     struct FreeAttachment : public Detail {
         FreeAttachment()
             : Detail(AttachmentType::FREE_ATTACHMENT) {}
+        FreeAttachment(double radius)
+            : Detail(AttachmentType::FREE_ATTACHMENT),
+              m_radius(radius) {}
 
         double m_radius;
 
@@ -345,6 +397,9 @@ public:
     struct RigidAttachment : public Detail {
         RigidAttachment()
             : Detail(AttachmentType::RIGID_ATTACHMENT) {}
+        RigidAttachment(double radius)
+            : Detail(AttachmentType::RIGID_ATTACHMENT),
+              m_radius(radius) {}
 
         double m_radius;
 
@@ -356,6 +411,12 @@ public:
     struct SpringAttachment : public Detail {
         SpringAttachment()
             : Detail(AttachmentType::SPRING) {}
+        SpringAttachment(double ks, double kd, double rest_len, double radius)
+            : Detail(AttachmentType::SPRING),
+              m_ks(ks),
+              m_kd(kd),
+              m_rest_len(rest_len),
+              m_radius(radius) {}
 
         double m_ks;
         double m_kd;
@@ -373,6 +434,10 @@ public:
     struct BearingInner : public Detail {
         BearingInner()
             : Detail(AttachmentType::BEARING_INNER) {}
+        BearingInner(double radius, double depth)
+            : Detail(AttachmentType::BEARING_INNER),
+              m_radius(radius),
+              m_depth(depth) {}
 
         double m_radius;
         double m_depth;
@@ -386,6 +451,11 @@ public:
     struct BearingOuter : public Detail {
         BearingOuter()
             : Detail(AttachmentType::BEARING_OUTER) {}
+        BearingOuter(double inner_radius, double depth, double friction)
+            : Detail(AttachmentType::BEARING_OUTER),
+              m_inner_radius(inner_radius),
+              m_depth(depth),
+              m_friction(friction) {}
 
         double m_inner_radius;
         double m_depth;
@@ -401,6 +471,11 @@ public:
     struct SlidingInner : public Detail {
         SlidingInner()
             : Detail(AttachmentType::SLIDING_INNER) {}
+        SlidingInner(Shape shape, double radius, double depth)
+            : Detail(AttachmentType::SLIDING_INNER),
+              m_shape(shape),
+              m_radius(radius),
+              m_depth(depth) {}
 
         Shape  m_shape;
         double m_radius;
@@ -416,6 +491,11 @@ public:
     struct SlidingOuter : public Detail {
         SlidingOuter()
             : Detail(AttachmentType::SLIDING_OUTER) {}
+        SlidingOuter(Shape shape, double radius, double depth)
+            : Detail(AttachmentType::SLIDING_OUTER),
+              m_shape(shape),
+              m_radius(radius),
+              m_depth(depth) {}
 
         Shape  m_shape;
         double m_radius;
@@ -431,6 +511,9 @@ public:
     struct ReservoirInner : public Detail {
         ReservoirInner()
             : Detail(AttachmentType::RESERVOIR_INNER) {}
+        ReservoirInner(int direction)
+            : Detail(AttachmentType::RESERVOIR_INNER),
+              m_direction(direction) {}
 
         int m_direction;
 
@@ -442,6 +525,11 @@ public:
     struct ReservoirOuter : public Detail {
         ReservoirOuter()
             : Detail(AttachmentType::RESERVOIR_OUTER) {}
+        ReservoirOuter(Shape shape, double radius, double volume)
+            : Detail(AttachmentType::RESERVOIR_OUTER),
+              m_shape(shape),
+              m_radius(radius),
+              m_volume(volume) {}
 
         Shape  m_shape;
         double m_radius;
@@ -466,6 +554,10 @@ public:
     struct FluidAttachment : public Detail {
         FluidAttachment()
             : Detail(AttachmentType::FLUID) {}
+        FluidAttachment(int direction, double radius)
+            : Detail(AttachmentType::FLUID),
+              m_direction(direction),
+              m_radius(radius) {}
 
         int    m_direction;
         double m_radius;
@@ -479,6 +571,10 @@ public:
     struct LogicAttachment : public Detail {
         LogicAttachment()
             : Detail(AttachmentType::LOGIC) {}
+        LogicAttachment(double radius, int port)
+            : Detail(AttachmentType::LOGIC),
+              m_radius(radius),
+              m_port(port) {}
 
         double m_radius;
         int    m_port;
@@ -492,6 +588,10 @@ public:
     struct LogicInputAttachment : public Detail {
         LogicInputAttachment()
             : Detail(AttachmentType::LOGIC_IN) {}
+        LogicInputAttachment(double radius, int port)
+            : Detail(AttachmentType::LOGIC_IN),
+              m_radius(radius),
+              m_port(port) {}
 
         double m_radius;
         int    m_port;
@@ -505,6 +605,9 @@ public:
     struct SparkSource : public Detail {
         SparkSource()
             : Detail(AttachmentType::SPARK) {}
+        SparkSource(double radius)
+            : Detail(AttachmentType::SPARK),
+              m_radius(radius) {}
 
         double m_radius;
 
@@ -535,21 +638,18 @@ public:
         : Object(2, tree) {}
     ~Attachment() {}
 
-    inline void set_position(double x, double y, double z) {
-        m_local_pos = {x, y, z};
+    SIMPLE_ACCESSOR_REF(dvec3_s, position, m_local_pos);
+    SIMPLE_ACCESSOR(double, angle, m_local_angle);
+    SIMPLE_ACCESSOR_REF(AttachmentDetail, raw_detail, m_detail);
+
+    template<typename T>
+    inline T &detail() {
+        return std::get<T>(m_detail);
     }
 
-    inline void set_angle(double angle) {
-        m_local_angle = angle;
-    }
-
-    inline void set_detail(const AttachmentDetail &detail) {
-        std::visit(
-                [this](auto &&d) {
-                    using T = std::decay_t<decltype(d)>;
-                    m_detail.emplace<T>(d);
-                },
-                detail);
+    template<typename T>
+    inline const T detail() const {
+        return std::get<T>(m_detail);
     }
 
     void serialize(nlohmann::json &json) override {
@@ -578,10 +678,13 @@ public:
         : Object(10, tree) {}
     ~Connection() {}
 
-    inline void set_connection(uint64_t p0id, uint64_t p1id) {
+    inline void connect(uint64_t p0id, uint64_t p1id) {
         m_p0 = p0id;
         m_p1 = p1id;
     }
+
+    SIMPLE_ACCESSOR(uint64_t, p0id, m_p0);
+    SIMPLE_ACCESSOR(uint64_t, p1id, m_p1);
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["Connection::Specification"];
@@ -630,17 +733,12 @@ public:
     }
     ~Instance() {}
 
-    inline void set_specification(uint64_t specid) {
-        m_specification = specid;
-    }
-
-    inline void set_position(double x, double y, double z) {
-        m_position = {x, y, z};
-    }
-
-    inline void set_primary(bool p) {
-        m_primary = p;
-    }
+    SIMPLE_ACCESSOR(uint64_t, specification, m_specification);
+    SIMPLE_ACCESSOR_REF(dvec3_s, position, m_position);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c0, m_orient_c0);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c1, m_orient_c1);
+    SIMPLE_ACCESSOR_REF(dvec3_s, orient_c2, m_orient_c2);
+    SIMPLE_ACCESSOR(bool, primary, m_primary)
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["Instance::Specification"];
@@ -678,17 +776,9 @@ public:
         : Object(7, tree) {}
     ~Valve() {}
 
-    inline void set_initial(double v) {
-        m_s_initial = v;
-    }
-
-    inline void set_max(double v) {
-        m_s_max = v;
-    }
-
-    inline void set_min(double v) {
-        m_s_min = v;
-    }
+    SIMPLE_ACCESSOR(double, initial, m_s_initial);
+    SIMPLE_ACCESSOR(double, max, m_s_max);
+    SIMPLE_ACCESSOR(double, min, m_s_min);
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["model"]["Valve::Specification"];
@@ -737,19 +827,25 @@ public:
         : Object(9, tree) {}
     ~EngineController() {}
 
-    inline void set_cylinder_count(int count) {
-        m_cylinder_count = count;
-        m_firing_angles.resize(count);
+    SIMPLE_ACCESSOR(double, rev_max, m_rev_limit_max_speed);
+    SIMPLE_ACCESSOR(double, rev_release, m_rev_limit_release_speed);
+
+    inline void set_cylinder_count(size_t cnt) {
+        m_cylinder_count = cnt;
+        m_firing_angles.resize(cnt);
     }
 
-    inline void set_firing_angle(size_t cylinder, double angle) {
-        if (cylinder >= m_cylinder_count) { return; }
-        m_firing_angles[cylinder] = angle;
+    inline int cylinder_count() const {
+        return m_cylinder_count;
     }
 
-    inline void set_rev_limit(double max, double release) {
-        m_rev_limit_max_speed     = max;
-        m_rev_limit_release_speed = release;
+    inline double *firing_angle(size_t cyl) {
+        if (cyl >= m_firing_angles.size()) { return nullptr; }
+        return &m_firing_angles[cyl];
+    }
+    inline const double *firing_angle(size_t cyl) const {
+        if (cyl >= m_firing_angles.size()) { return nullptr; }
+        return &m_firing_angles[cyl];
     }
 
     void serialize(nlohmann::json &json) override {
@@ -782,6 +878,13 @@ public:
         : Object(-2, tree) {}
     ~ComponentInstance() {}
 
+    SIMPLE_ACCESSOR(uint64_t, specification, m_specification);
+    SIMPLE_ACCESSOR(uint64_t, context, m_context);
+    SIMPLE_ACCESSOR(uint64_t, detail, m_detail);
+    SIMPLE_ACCESSOR(uint64_t, instance_mapping, m_instance_mapping);
+    SIMPLE_ACCESSOR(int, type, m_type);
+    SIMPLE_ACCESSOR(int, referenced_type, m_referenced_type);
+
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["state"]["Component::Instance"];
         nlohmann::json  elem;
@@ -799,12 +902,12 @@ public:
     }
 
 private:
-    uint64_t m_specification;
-    uint64_t m_context;
-    uint64_t m_detail;
-    uint64_t m_instance_mapping;
-    int      m_type;
-    int      m_referenced_type;
+    uint64_t m_specification    = nullid;
+    uint64_t m_context          = nullid;
+    uint64_t m_detail           = nullid;
+    uint64_t m_instance_mapping = nullid;
+    int      m_type             = 0;
+    int      m_referenced_type  = 0;
 };
 
 class InstanceMapping : public Object {
@@ -842,8 +945,19 @@ public:
         : Object(-4, tree) {}
     ~RigidBodyState() {}
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["RigidBody::State"];
+    SIMPLE_ACCESSOR_REF(dvec3_s, position, m_position);
+    SIMPLE_ACCESSOR_REF(dvec3_s, velocity, m_velocity);
+    SIMPLE_ACCESSOR(double, angle, m_angle);
+    SIMPLE_ACCESSOR(double, angular_velocity, m_angular_velocity);
+
+    inline void serialize(nlohmann::json &json) override {
+        serialize(json, true);
+        serialize(json, false);
+    }
+
+private:
+    void serialize(nlohmann::json &json, bool reset) {
+        nlohmann::json &state = json[reset ? "reset" : "state"]["RigidBody::State"];
         nlohmann::json  elem;
         nlohmann::json &data = elem["data"];
 
@@ -856,8 +970,6 @@ public:
         state.push_back(elem);
     }
 
-
-private:
     dvec3_s m_position;
     dvec3_s m_velocity;
     double  m_angle;
@@ -869,6 +981,16 @@ public:
     GasReservoirModelState(ObjectTree *tree)
         : Object(-5, tree) {}
     ~GasReservoirModelState() {}
+
+    SIMPLE_ACCESSOR(double, volume, m_volume);
+    SIMPLE_ACCESSOR(double, density, m_density);
+    SIMPLE_ACCESSOR(double, internal_energy, m_internal_energy);
+    SIMPLE_ACCESSOR(double, burned_volume, m_burned_volume);
+    SIMPLE_ACCESSOR(double, unburned_volume, m_unburned_volume);
+    SIMPLE_ACCESSOR(double, turbulence_intensity, m_turbulence_intensity);
+    SIMPLE_ACCESSOR(double, unburned_fraction_internal_energy, m_unburned_fraction_internal_energy);
+    SIMPLE_ACCESSOR(double, burned_fraction_internal_energy, m_burned_fraction_internal_energy);
+    SIMPLE_ACCESSOR(bool, combustion_active, m_combustion_active);
 
     void serialize(nlohmann::json &json) override {
         nlohmann::json &state = json["state"]["GasReservoirModel::State"];
@@ -899,7 +1021,7 @@ private:
     double m_turbulence_intensity;
     double m_unburned_fraction_internal_energy;
     double m_burned_fraction_internal_energy;
-    double m_combustion_active;
+    bool   m_combustion_active;
 };
 
 class TubeState : public Object {
@@ -921,8 +1043,64 @@ public:
         }
     };
 
+public:
+    TubeState(ObjectTree *tree)
+        : Object(-6, tree) {}
+    ~TubeState() {}
+
+    inline OutletState *outlet_state(size_t idx) {
+        if (idx >= m_outlet_state.size()) { return nullptr; }
+        return &m_outlet_state[idx];
+    }
+    inline const OutletState *outlet_state(size_t idx) const {
+        if (idx >= m_outlet_state.size()) { return nullptr; }
+        return &m_outlet_state[idx];
+    }
+
+    inline double *density(size_t cyl) {
+        if (cyl >= m_density.size()) { return nullptr; }
+        return &m_density[cyl];
+    }
+    inline const double *density(size_t cyl) const {
+        if (cyl >= m_density.size()) { return nullptr; }
+        return &m_density[cyl];
+    }
+
+    inline double *velocity(size_t cyl) {
+        if (cyl >= m_velocity.size()) { return nullptr; }
+        return &m_velocity[cyl];
+    }
+    inline const double *velocity(size_t cyl) const {
+        if (cyl >= m_velocity.size()) { return nullptr; }
+        return &m_velocity[cyl];
+    }
+
+    inline double *energy(size_t cyl) {
+        if (cyl >= m_energy.size()) { return nullptr; }
+        return &m_energy[cyl];
+    }
+    inline const double *energy(size_t cyl) const {
+        if (cyl >= m_energy.size()) { return nullptr; }
+        return &m_energy[cyl];
+    }
+
+    inline double *T_wall(size_t cyl) {
+        if (cyl >= m_T_wall.size()) { return nullptr; }
+        return &m_T_wall[cyl];
+    }
+    inline const double *T_wall(size_t cyl) const {
+        if (cyl >= m_T_wall.size()) { return nullptr; }
+        return &m_T_wall[cyl];
+    }
+
     void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["Tube::State"];
+        serialize(json, true);
+        serialize(json, false);
+    }
+
+private:
+    void serialize(nlohmann::json &json, bool reset) {
+        nlohmann::json &state = json[reset ? "reset" : "state"]["Tube::State"];
         nlohmann::json  elem;
         nlohmann::json &data = elem["data"];
 
@@ -940,13 +1118,6 @@ public:
         state.push_back(elem);
     }
 
-
-public:
-    TubeState(ObjectTree *tree)
-        : Object(-6, tree) {}
-    ~TubeState() {}
-
-private:
     std::array<OutletState, 2> m_outlet_state;
     std::vector<double>        m_density;
     std::vector<double>        m_velocity;
@@ -960,8 +1131,17 @@ public:
         : Object(-7, tree) {}
     ~ValveState() {}
 
+    SIMPLE_ACCESSOR(double, s, m_s);
+    SIMPLE_ACCESSOR(double, s_target, m_s_target);
+
     void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["Valve::State"];
+        serialize(json, true);
+        serialize(json, false);
+    }
+
+private:
+    void serialize(nlohmann::json &json, bool reset) {
+        nlohmann::json &state = json[reset ? "reset" : "state"]["Valve::State"];
         nlohmann::json  elem;
         nlohmann::json &data = elem["data"];
 
@@ -972,8 +1152,6 @@ public:
         state.push_back(elem);
     }
 
-
-private:
     double m_s;
     double m_s_target;
 };
