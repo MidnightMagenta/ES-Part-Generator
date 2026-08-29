@@ -216,8 +216,8 @@ public:
         {
             nlohmann::json &orient = data["orientation"];
             orient["c0"]           = m_orient_c0.data;
-            orient["c0"]           = m_orient_c1.data;
-            orient["c0"]           = m_orient_c2.data;
+            orient["c1"]           = m_orient_c1.data;
+            orient["c2"]           = m_orient_c2.data;
         }
 
         data["mass"] = m_mass;
@@ -654,8 +654,8 @@ public:
         {
             nlohmann::json &orient = data["orientation"];
             orient["c0"]           = m_orient_c0.data;
-            orient["c0"]           = m_orient_c1.data;
-            orient["c0"]           = m_orient_c2.data;
+            orient["c1"]           = m_orient_c1.data;
+            orient["c2"]           = m_orient_c2.data;
         }
 
         data["primary"] = m_primary;
@@ -961,7 +961,7 @@ public:
     ~ValveState() {}
 
     void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["RigidBody::Specification"];
+        nlohmann::json &state = json["state"]["Valve::State"];
         nlohmann::json  elem;
         nlohmann::json &data = elem["data"];
 
