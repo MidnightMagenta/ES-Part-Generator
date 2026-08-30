@@ -8,7 +8,6 @@ project("${ProjectName}" VERSION 0.1)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(dependencies)
 
 message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
@@ -30,10 +29,14 @@ target_link_libraries(esjson_lib PUBLIC
 )
 target_include_directories(esjson_lib PUBLIC include)
 
-nanobind_add_module(esjson src/python_bindings.cpp)
-target_link_libraries(esjson PRIVATE esjson_lib)
+if(DEFINED SKBUILD)
+    find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
 
-add_executable(esjson_test
-    src/main.cpp
-)
-target_link_libraries(esjson_test PRIVATE esjson_lib)
+    add_subdirectory(dependencies/submodules/nanobind)
+
+    nanobind_add_module(_esjson src/python_bindings.cpp)
+
+    target_link_libraries(_esjson PRIVATE esjson_lib)
+
+    install(TARGETS _esjson LIBRARY DESTINATION esjson)
+endif()

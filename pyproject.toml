@@ -1,0 +1,15 @@
+[build-system]
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "esjson"
+version = "0.1.0"
+description = "Python bindings for generating simulation spec JSON files"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["python/esjson"]
+cmake.source-dir = "."

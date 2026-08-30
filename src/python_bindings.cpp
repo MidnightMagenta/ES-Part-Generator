@@ -6,7 +6,7 @@
 namespace nb = nanobind;
 using namespace nb::literals;
 
-NB_MODULE(esjson, m) {
+NB_MODULE(_esjson, m) {
     nb::enum_<Shape>(m, "Shape")
             .value("Sphere", Shape::SPHERE)
             .value("Box", Shape::BLOCK)
