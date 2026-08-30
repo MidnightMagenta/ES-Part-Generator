@@ -146,6 +146,147 @@ public:
         return obj ? obj->id() : Object::nullid;
     }
 
+    // attachment adapters
+    inline uint64_t create_attachment_sensor(uint64_t       parent,
+                                             const dvec3_s &position,
+                                             double         angle,
+                                             int            sensor_type,
+                                             double         radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::Sensor(sensor_type, radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_free(uint64_t parent, const dvec3_s &position, double angle, double radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::FreeAttachment(radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_rigid(uint64_t parent, const dvec3_s &position, double angle, double radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::RigidAttachment(radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_spring(uint64_t       parent,
+                                             const dvec3_s &position,
+                                             double         angle,
+                                             double         ks,
+                                             double         kd,
+                                             double         rest_len,
+                                             double         radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::SpringAttachment(ks, kd, rest_len, radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_bearing_inner(uint64_t       parent,
+                                                    const dvec3_s &position,
+                                                    double         angle,
+                                                    double         radius,
+                                                    double         depth) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::BearingInner(radius, depth));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_bearing_outer(uint64_t       parent,
+                                                    const dvec3_s &position,
+                                                    double         angle,
+                                                    double         inner_radius,
+                                                    double         depth,
+                                                    double         friction) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::BearingOuter(inner_radius, depth, friction));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_sliding_inner(uint64_t       parent,
+                                                    const dvec3_s &position,
+                                                    double         angle,
+                                                    Shape          shape,
+                                                    double         radius,
+                                                    double         depth) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::SlidingInner(shape, radius, depth));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_sliding_outer(uint64_t       parent,
+                                                    const dvec3_s &position,
+                                                    double         angle,
+                                                    Shape          shape,
+                                                    double         radius,
+                                                    double         depth) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::SlidingOuter(shape, radius, depth));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_reservoir_inner(uint64_t       parent,
+                                                      const dvec3_s &position,
+                                                      double         angle,
+                                                      int            direction) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::ReservoirInner(direction));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_reservoir_outer(uint64_t       parent,
+                                                      const dvec3_s &position,
+                                                      double         angle,
+                                                      Shape          shape,
+                                                      double         radius,
+                                                      double         volume) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::ReservoirOuter(shape, radius, volume));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_reservoir_skin(uint64_t parent, const dvec3_s &position, double angle) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::ReservoirSkin());
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_fluid(uint64_t       parent,
+                                            const dvec3_s &position,
+                                            double         angle,
+                                            int            direction,
+                                            double         radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::FluidAttachment(direction, radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_logic(uint64_t       parent,
+                                            const dvec3_s &position,
+                                            double         angle,
+                                            double         radius,
+                                            int            port) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::LogicAttachment(radius, port));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_logic_input(uint64_t       parent,
+                                                  const dvec3_s &position,
+                                                  double         angle,
+                                                  double         radius,
+                                                  int            port) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::LogicInputAttachment(radius, port));
+        return obj ? obj->id() : Object::nullid;
+    }
+
+    inline uint64_t create_attachment_spark(uint64_t parent, const dvec3_s &position, double angle, double radius) {
+        Object *p   = find_object(parent);
+        Object *obj = create_attachment(p, position, angle, Attachment::SparkSource(radius));
+        return obj ? obj->id() : Object::nullid;
+    }
+    // !attachment adapters
+
     Object *find_object(uint64_t id) {
         return m_tree.find_object(id);
     }
