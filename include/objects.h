@@ -3,10 +3,8 @@
 
 #include <array>
 #include <cstdint>
-#include <format>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
-#include <unordered_map>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -249,7 +247,7 @@ public:
         elem["data"]["mass"] = m_mass;
 
         for (size_t i = 0; i < m_params.size(); i++) {
-            elem["data"]["parameters"][std::format("value{}", i)] = m_params[i];
+            elem["data"]["parameters"]["value" + std::to_string(i)] = m_params[i];
         }
 
         elem["data"]["invisible"] = !m_visible;
@@ -369,6 +367,9 @@ public:
     };
 
     struct Detail {
+        Detail(AttachmentType type)
+            : m_type(type) {}
+
         const AttachmentType m_type;
     };
 
@@ -1042,7 +1043,7 @@ public:
 
             {
                 for (size_t i = 0; i < m_outlet_velocity.size(); i++) {
-                    json["outletVelocity"][std::format("value{}", i)] = m_outlet_velocity[i];
+                    json["outletVelocity"]["value" + std::to_string(i)] = m_outlet_velocity[i];
                 }
             }
         }
@@ -1121,7 +1122,7 @@ private:
 
         nlohmann::ordered_json outlet_state;
         for (size_t i = 0; i < m_outlet_state.size(); i++) {
-            m_outlet_state[i].serialize(outlet_state[std::format("value{}", i)]);
+            m_outlet_state[i].serialize(outlet_state["value" + std::to_string(i)]);
         }
         data["outletState"] = std::move(outlet_state);
 

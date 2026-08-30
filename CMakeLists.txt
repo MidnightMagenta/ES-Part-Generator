@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE "debug")
 set(ProjectName "project_name")
 
 project("${ProjectName}" VERSION 0.1)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET
     "13.3" CACHE STRING
