@@ -67,7 +67,7 @@ public:
 
     virtual ~Object() {}
 
-    virtual void serialize(nlohmann::json &json) = 0;
+    virtual void serialize(nlohmann::ordered_json &json) = 0;
 
     uint64_t id() const {
         return m_id;
@@ -132,22 +132,25 @@ public:
 
     SIMPLE_ACCESSOR(bool, required, m_required);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Component::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &spec = json["model"]["Component::Specification"];
 
-        elem["id"]           = m_id;
+        nlohmann::ordered_json elem;
+        elem["id"] = m_id;
+
+        nlohmann::ordered_json data;
         data["parent"]["id"] = m_parent ? m_parent->id() : nullid;
-        for (const auto child : m_children) {
-            nlohmann::json children = data["children"];
-            children.push_back({{"id", child->id()}});
-        }
+
+        nlohmann::ordered_json children = nlohmann::ordered_json::array();
+        for (const auto child : m_children) { children.push_back({{"id", child->id()}}); }
+        data["children"] = std::move(children);
+
         data["type"]         = m_type;
         data["detail"]["id"] = m_detail ? m_detail->id() : nullid;
         data["required"]     = m_required;
 
-        state.push_back(elem);
+        elem["data"] = std::move(data);
+        spec.push_back(std::move(elem));
     }
 
 private:
@@ -170,17 +173,16 @@ public:
     SIMPLE_ACCESSOR(double, default_angle, m_default_angle);
     SIMPLE_ACCESSOR_REF(dvec3_s, default_position, m_default_position);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["RigidBody::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &spec = json["model"]["RigidBody::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]              = m_id;
-        data["infiniteMass"]    = m_infinite_mass;
-        data["defaultPosition"] = m_default_position.data;
-        data["defaultAngle"]    = m_default_angle;
+        elem["id"]                      = m_id;
+        elem["data"]["infiniteMass"]    = m_infinite_mass;
+        elem["data"]["defaultPosition"] = m_default_position.data;
+        elem["data"]["defaultAngle"]    = m_default_angle;
 
-        state.push_back(elem);
+        spec.push_back(elem);
     }
 
 private:
@@ -198,6 +200,9 @@ enum class Shape {
 
 class RigidBodyElement : public Object {
 public:
+    static constexpr size_t params_count = 16;
+
+public:
     RigidBodyElement(ObjectTree *tree)
         : Object(4, tree) {
         m_orient_c0 = {1.0, 0.0, 0.0};
@@ -214,6 +219,10 @@ public:
     SIMPLE_ACCESSOR(Shape, type, m_type);
     SIMPLE_ACCESSOR(bool, visible, m_visible);
 
+    static inline size_t params_size() {
+        return params_count;
+    }
+
     inline void set_param(size_t param, double v) {
         if (param >= m_params.size()) { throw std::runtime_error("Invalid parameter index"); }
         m_params[param] = v;
@@ -223,40 +232,41 @@ public:
         return m_params[param];
     }
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["RigidBodyElement::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["RigidBodyElement::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]       = m_id;
-        data["position"] = m_position.data;
+        elem["id"]               = m_id;
+        elem["data"]["position"] = m_position.data;
 
         {
-            nlohmann::json &orient = data["orientation"];
-            orient["c0"]           = m_orient_c0.data;
-            orient["c1"]           = m_orient_c1.data;
-            orient["c2"]           = m_orient_c2.data;
+            nlohmann::ordered_json &orient = elem["data"]["orientation"];
+            orient["c0"]                   = m_orient_c0.data;
+            orient["c1"]                   = m_orient_c1.data;
+            orient["c2"]                   = m_orient_c2.data;
         }
 
-        data["mass"] = m_mass;
+        elem["data"]["mass"] = m_mass;
 
-        for (size_t i = 0; i < m_params.size(); i++) { data["parameters"][std::format("value{}", i)] = m_params[i]; }
+        for (size_t i = 0; i < m_params.size(); i++) {
+            elem["data"]["parameters"][std::format("value{}", i)] = m_params[i];
+        }
 
-        data["invisible"] = !m_visible;
-        data["type"]      = (int) m_type;
+        elem["data"]["invisible"] = !m_visible;
+        elem["data"]["type"]      = (int) m_type;
 
         state.push_back(elem);
     }
 
 private:
-    dvec3_s                m_position;
-    dvec3_s                m_orient_c0;
-    dvec3_s                m_orient_c1;
-    dvec3_s                m_orient_c2;
-    double                 m_mass;
-    std::array<double, 16> m_params;
-    Shape                  m_type;
-    bool                   m_visible;
+    dvec3_s                          m_position;
+    dvec3_s                          m_orient_c0;
+    dvec3_s                          m_orient_c1;
+    dvec3_s                          m_orient_c2;
+    double                           m_mass;
+    std::array<double, params_count> m_params;
+    Shape                            m_type;
+    bool                             m_visible;
 };
 
 class GasReservoirModel : public Object {
@@ -265,12 +275,12 @@ public:
         : Object(5, tree) {}
     ~GasReservoirModel() {}
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["GasReservoirModel::Specification"];
-        nlohmann::json  elem;
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["GasReservoirModel::Specification"];
+        nlohmann::ordered_json  elem;
 
         elem["id"]   = m_id;
-        elem["data"] = nlohmann::json::object();
+        elem["data"] = nlohmann::ordered_json::object();
 
         state.push_back(elem);
     }
@@ -315,18 +325,17 @@ public:
         return &m_area[idx];
     }
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Tube::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["Tube::Specification"];
+        nlohmann::ordered_json  elem;
 
         elem["id"] = m_id;
 
-        data["precision"] = m_precision;
-        data["solverId"]  = m_solverid;
-        data["limiterId"] = m_limiterid;
-        data["dx"]        = m_dx;
-        data["area"]      = m_area;
+        elem["data"]["precision"] = m_precision;
+        elem["data"]["solverId"]  = m_solverid;
+        elem["data"]["limiterId"] = m_limiterid;
+        elem["data"]["dx"]        = m_dx;
+        elem["data"]["area"]      = m_area;
 
         state.push_back(elem);
     }
@@ -374,7 +383,7 @@ public:
         int    m_sensor_type;
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["sensorType"] = m_sensor_type;
             json["radius"]     = m_radius;
         }
@@ -389,7 +398,7 @@ public:
 
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
         }
     };
@@ -403,7 +412,7 @@ public:
 
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
         }
     };
@@ -423,7 +432,7 @@ public:
         double m_rest_len;
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"]     = m_radius;
             json["ks"]         = m_ks;
             json["kd"]         = m_kd;
@@ -442,7 +451,7 @@ public:
         double m_radius;
         double m_depth;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["depth"]  = m_depth;
             json["radius"] = m_radius;
         }
@@ -461,7 +470,7 @@ public:
         double m_depth;
         double m_friction;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["depth"]       = m_depth;
             json["innerRadius"] = m_inner_radius;
             json["friction"]    = m_friction;
@@ -481,7 +490,7 @@ public:
         double m_radius;
         double m_depth;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
             json["shape"]  = (int) m_shape;
             json["depth"]  = m_depth;
@@ -501,7 +510,7 @@ public:
         double m_radius;
         double m_depth;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
             json["shape"]  = (int) m_shape;
             json["depth"]  = m_depth;
@@ -517,7 +526,7 @@ public:
 
         int m_direction;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["direction"] = m_direction;
         }
     };
@@ -535,7 +544,7 @@ public:
         double m_radius;
         double m_volume;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
             json["shape"]  = (int) m_shape;
             json["volume"] = m_volume;
@@ -546,8 +555,8 @@ public:
         ReservoirSkin()
             : Detail(AttachmentType::RESERVOIR_SKIN) {}
 
-        void serialize(nlohmann::json &json) {
-            json = nlohmann::json::object();
+        void serialize(nlohmann::ordered_json &json) {
+            json = nlohmann::ordered_json::object();
         }
     };
 
@@ -562,7 +571,7 @@ public:
         int    m_direction;
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"]    = m_radius;
             json["direction"] = m_direction;
         }
@@ -579,7 +588,7 @@ public:
         double m_radius;
         int    m_port;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["port"]   = m_port;
             json["radius"] = m_radius;
         }
@@ -596,7 +605,7 @@ public:
         double m_radius;
         int    m_port;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["port"]   = m_port;
             json["radius"] = m_radius;
         }
@@ -611,7 +620,7 @@ public:
 
         double m_radius;
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["radius"] = m_radius;
         }
     };
@@ -652,18 +661,23 @@ public:
         return std::get<T>(m_detail);
     }
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["AttachmentPoint::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["AttachmentPoint::Specification"];
 
-        elem["id"]            = m_id;
+        nlohmann::ordered_json elem;
+        elem["id"] = m_id;
+
+        nlohmann::ordered_json data;
         data["localPosition"] = m_local_pos.data;
         data["localAngle"]    = m_local_angle;
         data["type"]          = std::visit([](auto &obj) { return obj.m_type; }, m_detail);
-        std::visit([&data](auto &obj) { return obj.serialize(data["detail"]); }, m_detail);
 
-        state.push_back(elem);
+        nlohmann::ordered_json detail;
+        std::visit([&detail](auto &obj) { obj.serialize(detail); }, m_detail);
+        data["detail"] = std::move(detail);
+
+        elem["data"] = std::move(data);
+        state.push_back(std::move(elem));
     }
 
 private:
@@ -686,14 +700,13 @@ public:
     SIMPLE_ACCESSOR(uint64_t, p0id, m_p0);
     SIMPLE_ACCESSOR(uint64_t, p1id, m_p1);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Connection::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["Connection::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]       = m_id;
-        data["p0"]["id"] = m_p0;
-        data["p1"]["id"] = m_p1;
+        elem["id"]               = m_id;
+        elem["data"]["p0"]["id"] = m_p0;
+        elem["data"]["p1"]["id"] = m_p1;
 
         state.push_back(elem);
     }
@@ -709,13 +722,12 @@ public:
         : Object(0, tree) {}
     ~Assembly() {}
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Assembly::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["Assembly::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"] = m_id;
-        data       = nlohmann::json::object();
+        elem["id"]   = m_id;
+        elem["data"] = nlohmann::ordered_json::object();
 
         state.push_back(elem);
     }
@@ -740,23 +752,22 @@ public:
     SIMPLE_ACCESSOR_REF(dvec3_s, orient_c2, m_orient_c2);
     SIMPLE_ACCESSOR(bool, primary, m_primary)
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Instance::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["Instance::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]                  = m_id;
-        data["specification"]["id"] = m_specification;
-        data["position"]            = m_position.data;
+        elem["id"]                          = m_id;
+        elem["data"]["specification"]["id"] = m_specification;
+        elem["data"]["position"]            = m_position.data;
 
         {
-            nlohmann::json &orient = data["orientation"];
-            orient["c0"]           = m_orient_c0.data;
-            orient["c1"]           = m_orient_c1.data;
-            orient["c2"]           = m_orient_c2.data;
+            nlohmann::ordered_json &orient = elem["data"]["orientation"];
+            orient["c0"]                   = m_orient_c0.data;
+            orient["c1"]                   = m_orient_c1.data;
+            orient["c2"]                   = m_orient_c2.data;
         }
 
-        data["primary"] = m_primary;
+        elem["data"]["primary"] = m_primary;
 
         state.push_back(elem);
     }
@@ -780,15 +791,14 @@ public:
     SIMPLE_ACCESSOR(double, max, m_s_max);
     SIMPLE_ACCESSOR(double, min, m_s_min);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["Valve::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["Valve::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]        = m_id;
-        data["s_initial"] = m_s_initial;
-        data["s_min"]     = m_s_min;
-        data["s_max"]     = m_s_max;
+        elem["id"]                = m_id;
+        elem["data"]["s_initial"] = m_s_initial;
+        elem["data"]["s_min"]     = m_s_min;
+        elem["data"]["s_max"]     = m_s_max;
 
         state.push_back(elem);
     }
@@ -806,13 +816,12 @@ public:
         : Object(8, tree) {}
     ~SparkSource() {}
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["SparkSource::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["SparkSource::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"] = m_id;
-        data       = nlohmann::json::object();
+        elem["id"]   = m_id;
+        elem["data"] = nlohmann::ordered_json::object();
 
         state.push_back(elem);
     }
@@ -848,16 +857,15 @@ public:
         return &m_firing_angles[cyl];
     }
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["model"]["EngineController::Specification"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["model"]["EngineController::Specification"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]                     = m_id;
-        data["cylinderCount"]          = m_cylinder_count;
-        data["firingAngles"]           = m_firing_angles;
-        data["revLimiterMaxSpeed"]     = m_rev_limit_max_speed;
-        data["revLimiterReleaseSpeed"] = m_rev_limit_release_speed;
+        elem["id"]                             = m_id;
+        elem["data"]["cylinderCount"]          = m_cylinder_count;
+        elem["data"]["firingAngles"]           = m_firing_angles;
+        elem["data"]["revLimiterMaxSpeed"]     = m_rev_limit_max_speed;
+        elem["data"]["revLimiterReleaseSpeed"] = m_rev_limit_release_speed;
 
         state.push_back(elem);
     }
@@ -885,18 +893,17 @@ public:
     SIMPLE_ACCESSOR(int, type, m_type);
     SIMPLE_ACCESSOR(int, referenced_type, m_referenced_type);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["Component::Instance"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["state"]["Component::Instance"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]                  = m_id;
-        data["specification"]["id"] = m_specification;
-        data["context"]["id"]       = m_context;
-        data["detail"]["id"]        = m_detail;
-        data["instanceMapping"]     = m_instance_mapping;
-        data["type"]                = m_type;
-        data["referencedType"]      = m_referenced_type;
+        elem["id"]                            = m_id;
+        elem["data"]["specification"]["id"]   = m_specification;
+        elem["data"]["context"]["id"]         = m_context;
+        elem["data"]["detail"]["id"]          = m_detail;
+        elem["data"]["instanceMapping"]["id"] = m_instance_mapping;
+        elem["data"]["type"]                  = m_type;
+        elem["data"]["referencedType"]        = m_referenced_type;
 
         state.push_back(elem);
     }
@@ -920,19 +927,19 @@ public:
         m_object_map.insert({key, value});
     }
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["InstanceMapping"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["state"]["InstanceMapping"];
 
+        nlohmann::ordered_json elem;
         elem["id"] = m_id;
 
-        {
-            nlohmann::json &obj_map = data["objectMap"];
-            for (const auto &[key, value] : m_object_map) { obj_map.push_back({{"key", key}, {"value", value}}); }
-        }
+        nlohmann::ordered_json data;
+        nlohmann::ordered_json obj_map = nlohmann::ordered_json::array();
+        for (const auto &[key, value] : m_object_map) { obj_map.push_back({{"key", key}, {"value", value}}); }
+        data["objectMap"] = std::move(obj_map);
 
-        state.push_back(elem);
+        elem["data"] = std::move(data);
+        state.push_back(std::move(elem));
     }
 
 private:
@@ -950,22 +957,21 @@ public:
     SIMPLE_ACCESSOR(double, angle, m_angle);
     SIMPLE_ACCESSOR(double, angular_velocity, m_angular_velocity);
 
-    inline void serialize(nlohmann::json &json) override {
+    inline void serialize(nlohmann::ordered_json &json) override {
         serialize(json, true);
         serialize(json, false);
     }
 
 private:
-    void serialize(nlohmann::json &json, bool reset) {
-        nlohmann::json &state = json[reset ? "reset" : "state"]["RigidBody::State"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json, bool reset) {
+        nlohmann::ordered_json &state = json[reset ? "reset" : "state"]["RigidBody::State"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]              = m_id;
-        data["position"]        = m_position.data;
-        data["velocity"]        = m_velocity.data;
-        data["angle"]           = m_angle;
-        data["angularVelocity"] = m_angular_velocity;
+        elem["id"]                      = m_id;
+        elem["data"]["position"]        = m_position.data;
+        elem["data"]["velocity"]        = m_velocity.data;
+        elem["data"]["angle"]           = m_angle;
+        elem["data"]["angularVelocity"] = m_angular_velocity;
 
         state.push_back(elem);
     }
@@ -992,21 +998,20 @@ public:
     SIMPLE_ACCESSOR(double, burned_fraction_internal_energy, m_burned_fraction_internal_energy);
     SIMPLE_ACCESSOR(bool, combustion_active, m_combustion_active);
 
-    void serialize(nlohmann::json &json) override {
-        nlohmann::json &state = json["state"]["GasReservoirModel::State"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json) override {
+        nlohmann::ordered_json &state = json["state"]["GasReservoirModel::State"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]                             = m_id;
-        data["volume"]                         = m_volume;
-        data["density"]                        = m_density;
-        data["internalEnergy"]                 = m_internal_energy;
-        data["burnedVolume"]                   = m_burned_volume;
-        data["unburnedVolume"]                 = m_unburned_volume;
-        data["turbulenceIntensity"]            = m_turbulence_intensity;
-        data["unburnedFractionInternalEnergy"] = m_unburned_fraction_internal_energy;
-        data["burnedFractionInternalEnergy"]   = m_burned_fraction_internal_energy;
-        data["combustionActive"]               = m_combustion_active;
+        elem["id"]                                     = m_id;
+        elem["data"]["volume"]                         = m_volume;
+        elem["data"]["density"]                        = m_density;
+        elem["data"]["internalEnergy"]                 = m_internal_energy;
+        elem["data"]["burnedVolume"]                   = m_burned_volume;
+        elem["data"]["unburnedVolume"]                 = m_unburned_volume;
+        elem["data"]["turbulenceIntensity"]            = m_turbulence_intensity;
+        elem["data"]["unburnedFractionInternalEnergy"] = m_unburned_fraction_internal_energy;
+        elem["data"]["burnedFractionInternalEnergy"]   = m_burned_fraction_internal_energy;
+        elem["data"]["combustionActive"]               = m_combustion_active;
 
         state.push_back(elem);
     }
@@ -1027,11 +1032,11 @@ private:
 class TubeState : public Object {
 public:
     struct OutletState {
-        double                m_entropy;
-        double                m_sound_pressure;
-        std::array<double, 5> m_outlet_velocity;
+        double                m_entropy         = 0.0;
+        double                m_sound_pressure  = 0.0;
+        std::array<double, 5> m_outlet_velocity = {0.0, 0.0, 0.0, 0.0, 0.0};
 
-        void serialize(nlohmann::json &json) {
+        void serialize(nlohmann::ordered_json &json) {
             json["entropy"]       = m_entropy;
             json["soundPressure"] = m_sound_pressure;
 
@@ -1048,6 +1053,13 @@ public:
         : Object(-6, tree) {}
     ~TubeState() {}
 
+    inline void set_cell_count(size_t cnt) {
+        m_density.resize(cnt);
+        m_velocity.resize(cnt);
+        m_energy.resize(cnt);
+        m_T_wall.resize(cnt);
+    }
+
     inline OutletState *outlet_state(size_t idx) {
         if (idx >= m_outlet_state.size()) { return nullptr; }
         return &m_outlet_state[idx];
@@ -1057,65 +1069,69 @@ public:
         return &m_outlet_state[idx];
     }
 
-    inline double *density(size_t cyl) {
-        if (cyl >= m_density.size()) { return nullptr; }
-        return &m_density[cyl];
+    inline double *density(size_t idx) {
+        if (idx >= m_density.size()) { return nullptr; }
+        return &m_density[idx];
     }
-    inline const double *density(size_t cyl) const {
-        if (cyl >= m_density.size()) { return nullptr; }
-        return &m_density[cyl];
-    }
-
-    inline double *velocity(size_t cyl) {
-        if (cyl >= m_velocity.size()) { return nullptr; }
-        return &m_velocity[cyl];
-    }
-    inline const double *velocity(size_t cyl) const {
-        if (cyl >= m_velocity.size()) { return nullptr; }
-        return &m_velocity[cyl];
+    inline const double *density(size_t idx) const {
+        if (idx >= m_density.size()) { return nullptr; }
+        return &m_density[idx];
     }
 
-    inline double *energy(size_t cyl) {
-        if (cyl >= m_energy.size()) { return nullptr; }
-        return &m_energy[cyl];
+    inline double *velocity(size_t idx) {
+        if (idx >= m_velocity.size()) { return nullptr; }
+        return &m_velocity[idx];
     }
-    inline const double *energy(size_t cyl) const {
-        if (cyl >= m_energy.size()) { return nullptr; }
-        return &m_energy[cyl];
-    }
-
-    inline double *T_wall(size_t cyl) {
-        if (cyl >= m_T_wall.size()) { return nullptr; }
-        return &m_T_wall[cyl];
-    }
-    inline const double *T_wall(size_t cyl) const {
-        if (cyl >= m_T_wall.size()) { return nullptr; }
-        return &m_T_wall[cyl];
+    inline const double *velocity(size_t idx) const {
+        if (idx >= m_velocity.size()) { return nullptr; }
+        return &m_velocity[idx];
     }
 
-    void serialize(nlohmann::json &json) override {
+    inline double *energy(size_t idx) {
+        if (idx >= m_energy.size()) { return nullptr; }
+        return &m_energy[idx];
+    }
+    inline const double *energy(size_t idx) const {
+        if (idx >= m_energy.size()) { return nullptr; }
+        return &m_energy[idx];
+    }
+
+    inline double *T_wall(size_t idx) {
+        if (idx >= m_T_wall.size()) { return nullptr; }
+        return &m_T_wall[idx];
+    }
+    inline const double *T_wall(size_t idx) const {
+        if (idx >= m_T_wall.size()) { return nullptr; }
+        return &m_T_wall[idx];
+    }
+
+    void serialize(nlohmann::ordered_json &json) override {
         serialize(json, true);
         serialize(json, false);
     }
 
 private:
-    void serialize(nlohmann::json &json, bool reset) {
-        nlohmann::json &state = json[reset ? "reset" : "state"]["Tube::State"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json, bool reset) {
+        nlohmann::ordered_json &state = json[reset ? "reset" : "state"]["Tube::State"];
 
+        nlohmann::ordered_json elem;
         elem["id"] = m_id;
 
+        nlohmann::ordered_json data;
+
+        nlohmann::ordered_json outlet_state;
         for (size_t i = 0; i < m_outlet_state.size(); i++) {
-            m_outlet_state[i].serialize(data["outletState"][std::format("value{}", i)]);
+            m_outlet_state[i].serialize(outlet_state[std::format("value{}", i)]);
         }
+        data["outletState"] = std::move(outlet_state);
 
         data["density"]  = m_density;
         data["velocity"] = m_velocity;
         data["energy"]   = m_energy;
         data["T_wall"]   = m_T_wall;
 
-        state.push_back(elem);
+        elem["data"] = std::move(data);
+        state.push_back(std::move(elem));
     }
 
     std::array<OutletState, 2> m_outlet_state;
@@ -1134,20 +1150,18 @@ public:
     SIMPLE_ACCESSOR(double, s, m_s);
     SIMPLE_ACCESSOR(double, s_target, m_s_target);
 
-    void serialize(nlohmann::json &json) override {
-        serialize(json, true);
+    void serialize(nlohmann::ordered_json &json) override {
         serialize(json, false);
     }
 
 private:
-    void serialize(nlohmann::json &json, bool reset) {
-        nlohmann::json &state = json[reset ? "reset" : "state"]["Valve::State"];
-        nlohmann::json  elem;
-        nlohmann::json &data = elem["data"];
+    void serialize(nlohmann::ordered_json &json, bool reset) {
+        nlohmann::ordered_json &state = json[reset ? "reset" : "state"]["Valve::State"];
+        nlohmann::ordered_json  elem;
 
-        elem["id"]       = m_id;
-        data["s"]        = m_s;
-        data["s_target"] = m_s_target;
+        elem["id"]               = m_id;
+        elem["data"]["s"]        = m_s;
+        elem["data"]["s_target"] = m_s_target;
 
         state.push_back(elem);
     }

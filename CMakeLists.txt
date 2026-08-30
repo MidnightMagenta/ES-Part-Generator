@@ -6,6 +6,7 @@ set(ProjectName "project_name")
 
 project("${ProjectName}" VERSION 0.1)
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 add_subdirectory(dependencies)
@@ -18,9 +19,11 @@ add_library(esjson_lib STATIC
     # headers
     include/objects.h
     include/object_tree.h
+    include/scene_builder.h
     # sources
     src/object_tree.cpp
     src/objects.cpp
+    src/scene_builder.cpp
 )
 target_link_libraries(esjson_lib PUBLIC
     nlohmann_json::nlohmann_json
