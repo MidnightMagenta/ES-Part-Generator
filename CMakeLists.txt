@@ -6,7 +6,7 @@ set(ProjectName "project_name")
 
 project("${ProjectName}" VERSION 0.1)
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "Minimum macOS deployment version")
 
 add_subdirectory(dependencies)
 
