@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE "debug")
 set(ProjectName "project_name")
 
 project("${ProjectName}" VERSION 0.1)
