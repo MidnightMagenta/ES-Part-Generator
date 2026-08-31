@@ -71,7 +71,7 @@ public:
         return m_id;
     }
 
-    int type() const {
+    int obj_type() const {
         return m_type;
     }
 
@@ -90,6 +90,8 @@ public:
     Component(ObjectTree *tree)
         : Object(-1, tree) {}
     ~Component() {}
+
+    SIMPLE_ACCESSOR(int, comp_type, m_comptype);
 
     inline void reparent(Object *new_parent) {
         Component *parent = dynamic_cast<Component *>(new_parent);
@@ -116,9 +118,8 @@ public:
     }
 
     inline void add_detail(Object *detail) {
-        // TODO: should probably check if the detail type is actually valid
-        m_detail = detail;
-        m_type   = detail->type();
+        m_detail   = detail;
+        m_comptype = detail->obj_type();
     }
 
     inline Object *get_detail() {
@@ -143,7 +144,7 @@ public:
         for (const auto child : m_children) { children.push_back({{"id", child->id()}}); }
         data["children"] = std::move(children);
 
-        data["type"]         = m_type;
+        data["type"]         = m_comptype;
         data["detail"]["id"] = m_detail ? m_detail->id() : nullid;
         data["required"]     = m_required;
 
@@ -156,7 +157,7 @@ private:
     std::unordered_set<Object *> m_children;
 
     Object *m_detail;
-    int     m_type;
+    int     m_comptype;
 
     bool m_required = false;
 };

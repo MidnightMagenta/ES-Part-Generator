@@ -3,44 +3,63 @@
 #include <scene_builder.h>
 
 void SceneBuilder::initialize_tree() {
-    Component         *root, *assembly_root, *instance_root;
-    Instance          *root_instance, *scene_instnace;
-    ComponentInstance *root_cinstance;
-    InstanceMapping   *root_mapping;
+    Component         *comp_0, *comp_2, *comp_4, *comp_6;
+    Instance          *instance_5, *instance_7;
+    Assembly          *asbly_1, *asbly_3;
+    ComponentInstance *comp_inst_8, *comp_inst_10;
+    InstanceMapping   *im_9, *im_11;
 
-    root                      = m_tree.create_object<ObjType::COMPONENT>();
-    root_instance             = m_tree.create_object<ObjType::INSTANCE>();
-    assembly_root             = m_tree.create_object<ObjType::COMPONENT>();
-    instance_root             = m_tree.create_object<ObjType::COMPONENT>();
-    scene_instnace            = m_tree.create_object<ObjType::INSTANCE>();
-    m_root_component          = m_tree.create_object<ObjType::COMPONENT>();
-    root_mapping              = m_tree.create_object<ObjType::ISNTANCE_MAPPING>();
-    m_mapping                 = m_tree.create_object<ObjType::ISNTANCE_MAPPING>();
-    root_cinstance            = m_tree.create_object<ObjType::COMPONENT_INSTANCE>();
-    m_root_component_instance = m_tree.create_object<ObjType::COMPONENT_INSTANCE>();
+    // create the objects in correct order
+    comp_0       = m_tree.create_object<ObjType::COMPONENT>();
+    asbly_1      = m_tree.create_object<ObjType::ASSEMBLY>();
+    comp_2       = m_tree.create_object<ObjType::COMPONENT>();
+    asbly_3      = m_tree.create_object<ObjType::ASSEMBLY>();
+    comp_4       = m_tree.create_object<ObjType::COMPONENT>();
+    instance_5   = m_tree.create_object<ObjType::INSTANCE>();
+    comp_6       = m_tree.create_object<ObjType::COMPONENT>();
+    instance_7   = m_tree.create_object<ObjType::INSTANCE>();
+    comp_inst_8  = m_tree.create_object<ObjType::COMPONENT_INSTANCE>();
+    im_9         = m_tree.create_object<ObjType::ISNTANCE_MAPPING>();
+    comp_inst_10 = m_tree.create_object<ObjType::COMPONENT_INSTANCE>();
+    im_11        = m_tree.create_object<ObjType::ISNTANCE_MAPPING>();
 
-    root->add_detail(root_instance);
-    root_instance->specification() = assembly_root->id();
+    // create the base tree
+    comp_6->add_detail(instance_7);
+    instance_7->specification() = comp_0->id();
+    comp_0->add_detail(asbly_1);
+    comp_0->add_child(comp_4);
+    comp_4->add_detail(instance_5);
+    instance_5->specification() = comp_2->id();
+    comp_2->add_detail(asbly_3);
 
-    assembly_root->add_detail(m_tree.create_object<ObjType::ASSEMBLY>());
-    assembly_root->add_child(instance_root);
+    instance_5->position()  = {0.0, 0.0, 0.0};
+    instance_5->primary()   = false;
+    instance_5->orient_c0() = {-1.0, 0.0, 0.0};
+    instance_5->orient_c1() = {0.0, 0.0, 1.0};
+    instance_5->orient_c2() = {0.0, 1.0, 0.0};
 
-    instance_root->add_detail(scene_instnace);
-    scene_instnace->specification() = m_root_component->id();
+    instance_7->position()  = {0.0, 0.0, 0.0};
+    instance_7->primary()   = true;
+    instance_7->orient_c0() = {1.0, 0.0, 0.0};
+    instance_7->orient_c1() = {0.0, 1.0, 0.0};
+    instance_7->orient_c2() = {0.0, 0.0, 1.0};
 
-    m_root_component->add_detail(m_tree.create_object<ObjType::ASSEMBLY>());
+    comp_inst_8->specification()    = comp_6->id();
+    comp_inst_8->instance_mapping() = im_9->id();
+    comp_inst_8->type()             = 1;
+    comp_inst_8->referenced_type()  = 0;
 
-    root_cinstance->specification()    = root->id();
-    root_cinstance->instance_mapping() = root_mapping->id();
-    root_cinstance->type()             = ObjType::INSTANCE;
-    root_cinstance->referenced_type()  = ObjType::ASSEMBLY;
+    comp_inst_10->specification()    = comp_4->id();
+    comp_inst_10->context()          = comp_inst_8->id();
+    comp_inst_10->instance_mapping() = im_11->id();
+    comp_inst_10->type()             = 1;
+    comp_inst_10->referenced_type()  = 0;
 
-    m_root_component_instance->specification()    = instance_root->id();
-    m_root_component_instance->context()          = root_cinstance->id();
-    m_root_component_instance->instance_mapping() = m_mapping->id();
-    m_root_component_instance->type()             = ObjType::INSTANCE;
-    m_root_component_instance->referenced_type()  = ObjType::ASSEMBLY;
-    root_mapping->add_mapping(instance_root->id(), m_root_component_instance->id());
+    im_9->add_mapping(comp_4->id(), comp_inst_10->id());
+
+    m_root_component          = comp_2;
+    m_root_component_instance = comp_inst_10;
+    m_mapping                 = im_11;
 }
 
 Object *SceneBuilder::create_instance(Object *parent, Object *spec, const dvec3_s &position, bool primary) {
@@ -77,8 +96,8 @@ Object *SceneBuilder::create_attachment(Object                             *pare
 
     comp_instance->context()         = m_root_component_instance->id();
     comp_instance->specification()   = comp->id();
-    comp_instance->type()            = comp->type();
-    comp_instance->referenced_type() = comp->type();
+    comp_instance->type()            = ObjType::ATTACHMENT;
+    comp_instance->referenced_type() = ObjType::ATTACHMENT;
 
     m_mapping->add_mapping(comp->id(), comp_instance->id());
 

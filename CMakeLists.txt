@@ -13,10 +13,6 @@ set(CMAKE_OSX_DEPLOYMENT_TARGET
 
 add_subdirectory(dependencies)
 
-message(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
-message(STATUS "Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
-message(STATUS "Python_VERSION: ${Python_VERSION}")
-
 add_library(esjson_lib STATIC
     # headers
     include/objects.h
@@ -31,6 +27,11 @@ target_link_libraries(esjson_lib PUBLIC
     nlohmann_json::nlohmann_json
 )
 target_include_directories(esjson_lib PUBLIC include)
+
+add_executable(esjson_test
+    src/main.cpp
+)
+target_link_libraries(esjson_test PRIVATE esjson_lib)
 
 if(DEFINED SKBUILD)
     find_package(Python 3.9 COMPONENTS Interpreter Development.Module REQUIRED)
